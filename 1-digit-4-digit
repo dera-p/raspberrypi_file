@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+import RPi.GPIO as GPIO
+import time
+import threading
+
+SDI_4 = 24
+RCLK_4 = 23
+SRCLK_4 = 18
+
+SDI_1   = 16
+RCLK_1  = 19
+SRCLK_1 = 26
+
+placePin = (10, 22, 27, 17)
+digit_4_number = (0xc0, 0xf9, 0xa4, 0xb0, 0x99, 0x92, 0x82, 0xf8, 0x80, 0x90)
+digit_1_number = (0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f)
+
+counter = 0
+timer1 = 0
+
+def clearDisplay():
+    for i in range(8):
+        GPIO.output(SDI_4, 1)
+        GPIO.output(SRCLK_4, GPIO.HIGH)
+        GPIO.output(SRCLK_4, GPIO.LOW)
+    GPIO.output(RCLK_4, GPIO.HIGH)
+    GPIO.output(RCLK_4, GPIO.LOW)    
+
+def hc595_shift_4_digit(data): 
+    for i in range(8):
+        GPIO.output(SDI_4, 0x80 & (data << i))
+        GPIO.output(SRCLK_4, GPIO.HIGH)
+        GPIO.output(SRCLK_4, GPIO.LOW)
+    GPIO.output(RCLK_4, GPIO.HIGH)
+    GPIO.output(RCLK_4, GPIO.LOW)
+    
+def hc595_shift_1_digit(data):
+	for i in range(8):	
+		GPIO.output(SDI_1, 0x80 & (data << i))
+		GPIO.output(SRCLK_1, GPIO.HIGH)
+		time.sleep(0.001)
+		GPIO.output(SRCLK_1, GPIO.LOW)
+	GPIO.output(RCLK_1, GPIO.HIGH)
+	time.sleep(0.001)
+	GPIO.output(RCLK_1, GPIO.LOW)
+
+def pickDigit(digit):
+    for i in placePin:
+        GPIO.output(i,GPIO.LOW)
+    GPIO.output(placePin[digit], GPIO.HIGH)
+
+
+def timer():  
+    global counter
+    global timer1
+    timer1 = threading.Timer(1.0, timer) 
+    timer1.start()  
+    counter += 1
+    print("%d" % counter)
+
+
+def loop():
+    global counter                    
+    while True:
+        clearDisplay()
+        
+        # 1
+        hc595_shift_1_digit(digit_1_number[counter % 10])
+        
+        # 10 
+        pickDigit(0)  
+        hc595_shift_4_digit(digit_4_number[counter % 100//10])
+        
+        # 100
+        clearDisplay()
+        pickDigit(1)
+        hc595_shift_4_digit(digit_4_number[counter % 1000//100])
+
+        # 1000
+        clearDisplay()
+        pickDigit(2)
+        hc595_shift_4_digit(digit_4_number[counter % 10000//1000])
+
+        # 10000
+        clearDisplay()
+        pickDigit(3)
+        hc595_shift_4_digit(digit_4_number[counter % 100000//10000])
+
+
+def setup():
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(SDI_4, GPIO.OUT)
+    GPIO.setup(RCLK_4, GPIO.OUT)
+    GPIO.setup(SRCLK_4, GPIO.OUT)
+    GPIO.setup(SDI_1, GPIO.OUT, initial=GPIO.LOW)
+    GPIO.setup(RCLK_1, GPIO.OUT, initial=GPIO.LOW)
+    GPIO.setup(SRCLK_1, GPIO.OUT, initial=GPIO.LOW)
+    for i in placePin:
+        GPIO.setup(i, GPIO.OUT)
+    global timer1
+    timer1 = threading.Timer(1.0, timer)  
+    timer1.start()       
+
+def destroy():   # When "Ctrl+C" is pressed, the function is executed.
+    global timer1
+    GPIO.cleanup()
+    timer1.cancel()  # cancel the timer
+
+if __name__ == '__main__':  # Program starting from here
+    setup()
+    try:
+        loop()
+    except KeyboardInterrupt:
+        destroy()
