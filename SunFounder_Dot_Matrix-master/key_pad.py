@@ -34,7 +34,7 @@ class Keypad():
         return pressed_keys
 
 def setup():
-    global keypad, last_key_pressed, first_num, second_num
+    global keypad, last_key_pressed, first_num, second_num, operator
     rowsPins = [19,23,24,25]
     colsPins = [10,22,26,16]
     keys = ["1","2","3","A",
@@ -45,6 +45,7 @@ def setup():
     last_key_pressed = []
     first_num = None
     second_num = None
+    operator = None
     GPIO.setup(SDI, GPIO.OUT)
     GPIO.setup(RCLK, GPIO.OUT)
     GPIO.setup(SRCLK, GPIO.OUT)
@@ -96,10 +97,29 @@ def rotate_90_left(data):
         rotated.append(new_row)
     return rotated
 
+def add(first_num: int, second_num: int):
+    result = first_num + second_num
+    print(f'{first_num} + {second_num} = {result}')
+    show(rotate_90_left(tables.charactors.get(str(result))),3)  
+    
+def subtract(first_num: int, second_num: int):
+    result = first_num - second_num
+    print(f'{first_num} - {second_num} = {result}')
+    show(rotate_90_left(tables.charactors.get(str(result))),3)  
+    
 def times(first_num: int, second_num: int):
     result = first_num * second_num
     print(f'{first_num} * {second_num} = {result}')
     show(rotate_90_left(tables.charactors.get(str(result))),3)  
+
+def divide(first_num: int, second_num: int):
+    if second_num == 0:
+        print("Can't divide by zero")
+        show(rotate_90_left(tables.charactors.get('E')),3)
+    else:
+        result = first_num // second_num
+        print(f'{first_num} // {second_num} = {result}')
+        show(rotate_90_left(tables.charactors.get(str(result))),3)  
 
 def check_int(value: str):
     try:
@@ -110,7 +130,7 @@ def check_int(value: str):
 
 
 def loop():
-    global keypad, last_key_pressed, first_num, second_num
+    global keypad, last_key_pressed, first_num, second_num, operator
     
     pressed_keys = keypad.read()
    
@@ -122,7 +142,8 @@ def loop():
         now_key = pressed_keys[0] if pressed_keys else ''
         last_key = last_key_pressed[0] if last_key_pressed else ''
 
-        if last_key == '*' and check_int(now_key):
+        if last_key in ['A','B','C','D','*'] and check_int(now_key):
+            operator = last_key
             second_num = now_key    
 
         if check_int(now_key):
@@ -133,11 +154,24 @@ def loop():
 	    
         print(f'first_num: {first_num}')
         print(f'second_num: {second_num}')
+        print(f'operator: {operator}')
 
         if now_key == '#':
-            times(int(first_num), int(second_num))
+            if operator == 'A':
+                add(int(first_num), int(second_num))
+
+            if operator == 'B':
+                subtract(int(first_num), int(second_num))
+            
+            if operator in ['C', '*']:
+                times(int(first_num), int(second_num))
+
+            if operator == 'D':
+                divide(int(first_num), int(second_num))
+
             first_num = None
             second_num = None
+            operator = None
 	    
         last_key_pressed = pressed_keys
 	
